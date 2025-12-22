@@ -20,12 +20,19 @@ export default function Home() {
     setIsLoading(true)
     setResult('')
 
-    // TODO: Здесь будет подключение к AI и выполнение нужного действия
-    // Пока что просто имитация загрузки
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/parse-article', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      })
+      const data = await response.json()
       setIsLoading(false)
-      setResult(`Результат для действия "${getActionName(type)}" будет здесь...`)
-    }, 2000)
+      setResult(JSON.stringify(data, null, 2))
+    } catch {
+      setIsLoading(false)
+      setResult('Ошибка получения данных')
+    }
   }
 
   const getActionName = (type: ActionType): string => {
@@ -108,9 +115,9 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="prose max-w-none">
-                  <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                  <pre className="text-gray-700 whitespace-pre-wrap leading-relaxed">
                     {result}
-                  </p>
+                  </pre>
                 </div>
               )}
             </div>
