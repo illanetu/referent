@@ -78,7 +78,7 @@ export default function Home() {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <button
               onClick={() => handleSubmit('summary')}
               disabled={isLoading}
@@ -99,6 +99,33 @@ export default function Home() {
               className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
             >
               Пост для Telegram
+            </button>
+            <button
+              onClick={async () => {
+                if (!url.trim()) {
+                  alert('Пожалуйста, введите URL статьи')
+                  return
+                }
+                setIsLoading(true)
+                setResult('')
+                try {
+                  const response = await fetch('/api/parse-article', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url }),
+                  })
+                  const data = await response.json()
+                  setIsLoading(false)
+                  setResult(JSON.stringify(data, null, 2))
+                } catch {
+                  setIsLoading(false)
+                  setResult('Ошибка получения данных')
+                }
+              }}
+              disabled={isLoading}
+              className="px-6 py-3 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
+            >
+              Парсить статью
             </button>
           </div>
         </div>
