@@ -12,7 +12,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Нет текста для перевода' }, { status: 400 });
   }
 
-  const contentPrompt = `Переведи текст на русский язык. Сохрани структуру, Markdown и форматирование:\n${text}`;
+  const contentPrompt = [
+    'Переведи текст на русский язык.',
+    'Сохрани структуру, Markdown и форматирование.',
+    'Не добавляй никаких пояснений, введения или обрамления.',
+    'Верни только готовый перевод.',
+    '',
+    text,
+  ].join('\n');
 
   try {
     const response = await fetch(OPENROUTER_API_URL, {
@@ -35,7 +42,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Ошибка OpenRouter', detail: msg }, { status: 500 });
     }
     const data = await response.json();
-    const translated = data.choices?.[0]?.message?.content || '';
+    let translated = data.choices?.[0]?.message?.content || '';
+    // deepseek-r1 streams размышления в <think>...</think>; убираем их
+    translated = translated.replace(/<think>[^]*?<\/think>/g, '').trim();
+    // нормализуем экранированные переводы строк, которые модель иногда возвращает как \n
+    translated = translated.replace(/\\n/g, '\n');
+    // срезаем любые вводные, оставляя с первой строки, похожей на контент
+    const lines: string[] = translated.split(/\r?\n/);
+    const startIdx = lines.findIndex((l: string) => l.trim().match(/^(#|\d+\.)/));
+    if (startIdx >= 0) {
+      translated = lines.slice(startIdx).join('\n').trim();
+    }
     return NextResponse.json({ result: translated, openrouter_raw: data })
   } catch (e) {
     return NextResponse.json({ error: 'Ошибка перевода', detail: e?.toString() }, { status: 500 });

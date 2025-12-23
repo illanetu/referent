@@ -28,7 +28,11 @@ export default function Home() {
       })
       const data = await response.json()
       setIsLoading(false)
-      setResult(JSON.stringify(data, null, 2))
+      setResult(
+        typeof data === 'object' && data !== null && 'content' in data
+          ? (data as any).content || ''
+          : JSON.stringify(data, null, 2)
+      )
     } catch {
       setIsLoading(false)
       setResult('Ошибка получения данных')
@@ -116,7 +120,11 @@ export default function Home() {
                   });
                   const data = await response.json();
                   setIsLoading(false);
-                  setResult(JSON.stringify(data, null, 2));
+                  setResult(
+                    typeof data === 'object' && data !== null && 'content' in data
+                      ? (data as any).content || ''
+                      : JSON.stringify(data, null, 2)
+                  );
                 } catch {
                   setIsLoading(false);
                   setResult('Ошибка получения данных');
@@ -156,7 +164,11 @@ export default function Home() {
                   });
                   const translated = await resTrans.json();
                   setIsLoading(false);
-                  setResult(JSON.stringify(translated, null, 2));
+                  setResult(
+                    typeof translated === 'object' && translated !== null && 'result' in translated
+                      ? (translated as any).result || ''
+                      : JSON.stringify(translated, null, 2)
+                  );
                 } catch (e) {
                   setIsLoading(false);
                   setResult('Ошибка при переводе');

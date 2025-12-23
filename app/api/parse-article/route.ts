@@ -33,12 +33,14 @@ export async function POST(req: NextRequest) {
     ).trim();
 
     // Поиск основного контента
-    const content = (
+    let content = (
       $('article').text() ||
       $('.post').text() ||
       $('.content').text() ||
       ''
-    ).replace(/\s{2,}/g, ' ').trim();
+    );
+    // Чистим экранированные переводы строк и лишние пробелы
+    content = content.replace(/\\n/g, '\n').replace(/\s{2,}/g, ' ').trim();
 
     return NextResponse.json({ date, title, content });
   } catch (error) {
