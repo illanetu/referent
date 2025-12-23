@@ -78,7 +78,7 @@ export default function Home() {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
             <button
               onClick={() => handleSubmit('summary')}
               disabled={isLoading}
@@ -103,29 +103,69 @@ export default function Home() {
             <button
               onClick={async () => {
                 if (!url.trim()) {
-                  alert('Пожалуйста, введите URL статьи')
-                  return
+                  alert('Пожалуйста, введите URL статьи');
+                  return;
                 }
-                setIsLoading(true)
-                setResult('')
+                setIsLoading(true);
+                setResult('');
                 try {
                   const response = await fetch('/api/parse-article', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url }),
-                  })
-                  const data = await response.json()
-                  setIsLoading(false)
-                  setResult(JSON.stringify(data, null, 2))
+                  });
+                  const data = await response.json();
+                  setIsLoading(false);
+                  setResult(JSON.stringify(data, null, 2));
                 } catch {
-                  setIsLoading(false)
-                  setResult('Ошибка получения данных')
+                  setIsLoading(false);
+                  setResult('Ошибка получения данных');
                 }
               }}
               disabled={isLoading}
               className="px-6 py-3 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
             >
               Парсить статью
+            </button>
+            <button
+              onClick={async () => {
+                if (!url.trim()) {
+                  alert('Пожалуйста, введите URL статьи');
+                  return;
+                }
+                setIsLoading(true);
+                setResult('');
+                try {
+                  // Шаг 1. Получаем распаршенную статью
+                  const resParse = await fetch('/api/parse-article', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url }),
+                  });
+                  const parsed = await resParse.json();
+                  const text =
+                    (parsed.title ? `# ${parsed.title}\n` : '') +
+                    (parsed.date ? `Дата: ${parsed.date}\n\n` : '') +
+                    (parsed.content || '');
+
+                  // Шаг 2. Переводим через OpenRouter AI
+                  const resTrans = await fetch('/api/translate-article', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text }),
+                  });
+                  const translated = await resTrans.json();
+                  setIsLoading(false);
+                  setResult(JSON.stringify(translated, null, 2));
+                } catch (e) {
+                  setIsLoading(false);
+                  setResult('Ошибка при переводе');
+                }
+              }}
+              disabled={isLoading}
+              className="px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
+            >
+              Перевести статью
             </button>
           </div>
         </div>
