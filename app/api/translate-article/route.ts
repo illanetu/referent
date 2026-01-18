@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'deepseek/deepseek-r1-0528:free',
+        model: 'mistralai/mistral-7b-instruct:free',
         messages: [
           { role: 'system', content: 'Ты — профессиональный переводчик, владеющий современным разговорным русским.' },
           { role: 'user', content: contentPrompt },
@@ -37,14 +37,36 @@ export async function POST(req: NextRequest) {
       }),
     })
     if (!response.ok) {
-      const msg = await response.text();
-      console.error('Ошибка OpenRouter:', msg);
-      return NextResponse.json({ error: 'Ошибка OpenRouter', detail: msg }, { status: 500 });
+      const responseText = await response.text();
+      let errorMsg = responseText;
+      try {
+        const errorData = JSON.parse(responseText);
+        errorMsg = errorData.error?.message || errorData.error?.code || errorData.error || JSON.stringify(errorData);
+        if (typeof errorMsg !== 'string') {
+          errorMsg = JSON.stringify(errorMsg);
+        }
+      } catch {
+        // Если не удалось распарсить, используем текст как есть
+      }
+      
+      console.error('Ошибка OpenRouter (статус', response.status, '):', errorMsg);
+      console.error('Полный ответ:', responseText);
+      
+      // Улучшаем сообщение об ошибке для пользователя только для региональных ограничений
+      let userFriendlyMsg = errorMsg;
+      const lowerMsg = errorMsg.toLowerCase();
+      if (lowerMsg.includes('not available in your region') || 
+          lowerMsg.includes('access denied') ||
+          (lowerMsg.includes('region') && lowerMsg.includes('not available'))) {
+        userFriendlyMsg = 'Сервис OpenRouter недоступен в вашем регионе. Попробуйте использовать VPN или обратитесь к администратору.';
+      }
+      
+      return NextResponse.json({ error: userFriendlyMsg }, { status: 500 });
     }
     const data = await response.json();
     let translated = data.choices?.[0]?.message?.content || '';
-    // deepseek-r1 streams размышления в <think>...</think>; убираем их
-    translated = translated.replace(/<think>[^]*?<\/think>/g, '').trim();
+    // Убираем размышления (для совместимости с моделями, которые их добавляют)
+    translated = translated.replace(/<think>[^]*?<\/redacted_reasoning>/g, '').trim();
     // нормализуем экранированные переводы строк, которые модель иногда возвращает как \n
     translated = translated.replace(/\\n/g, '\n');
     // срезаем любые вводные, оставляя с первой строки, похожей на контент

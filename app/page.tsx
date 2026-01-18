@@ -9,6 +9,7 @@ export default function Home() {
   const [actionType, setActionType] = useState<ActionType>(null)
   const [result, setResult] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [operationName, setOperationName] = useState<string>('')
 
   const handleSubmit = async (type: ActionType) => {
     if (!url.trim()) {
@@ -16,30 +17,49 @@ export default function Home() {
       return
     }
 
+    if (!type) {
+      return
+    }
+
     setActionType(type)
+    setOperationName('')
     setIsLoading(true)
     setResult('')
 
     try {
-      const response = await fetch('/api/parse-article', {
+      const response = await fetch('/api/process-article', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, actionType: type }),
       })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Ошибка обработки статьи')
+      }
+
       const data = await response.json()
       setIsLoading(false)
-      setResult(
-        typeof data === 'object' && data !== null && 'content' in data
-          ? (data as any).content || ''
-          : JSON.stringify(data, null, 2)
-      )
-    } catch {
+
+      if (data.error) {
+        setResult(`Ошибка: ${data.error}`)
+      } else {
+        setResult(data.result || 'Результат не получен')
+      }
+    } catch (error) {
       setIsLoading(false)
-      setResult('Ошибка получения данных')
+      if (error instanceof Error) {
+        setResult(`Ошибка: ${error.message}`)
+      } else {
+        setResult('Ошибка получения данных')
+      }
     }
   }
 
-  const getActionName = (type: ActionType): string => {
+  const getActionName = (type: ActionType, opName: string): string => {
+    if (opName) {
+      return opName
+    }
     switch (type) {
       case 'summary':
         return 'О чем статья?'
@@ -110,6 +130,8 @@ export default function Home() {
                   alert('Пожалуйста, введите URL статьи');
                   return;
                 }
+                setActionType(null);
+                setOperationName('Распарсенная статья');
                 setIsLoading(true);
                 setResult('');
                 try {
@@ -141,6 +163,8 @@ export default function Home() {
                   alert('Пожалуйста, введите URL статьи');
                   return;
                 }
+                setActionType(null);
+                setOperationName('Переведенная статья');
                 setIsLoading(true);
                 setResult('');
                 try {
@@ -185,7 +209,7 @@ export default function Home() {
         {(result || isLoading) && (
           <div className="bg-white rounded-lg shadow-xl p-6 sm:p-8">
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-              {isLoading ? 'Генерация...' : getActionName(actionType)}
+              {isLoading ? 'Генерация...' : getActionName(actionType, operationName)}
             </h2>
             <div className="min-h-[200px]">
               {isLoading ? (
