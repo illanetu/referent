@@ -5,7 +5,7 @@ const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 type ActionType = 'summary' | 'theses' | 'telegram';
 
-function getPromptForActionType(actionType: ActionType, articleText: string): { system: string; user: string } {
+function getPromptForActionType(actionType: ActionType, articleText: string, url?: string): { system: string; user: string } {
   const baseText = articleText;
 
   switch (actionType) {
@@ -46,6 +46,9 @@ function getPromptForActionType(actionType: ActionType, articleText: string): { 
     }
 
     case 'telegram': {
+      const sourceInstruction = url 
+        ? `- ОБЯЗАТЕЛЬНО добавь в самом конце поста (после хештегов, если они есть) ссылку на источник в формате: "Источник: ${url}"`
+        : '';
       return {
         system: 'Ты — профессиональный копирайтер, специализирующийся на создании постов для социальных сетей, особенно для Telegram.',
         user: [
@@ -56,12 +59,13 @@ function getPromptForActionType(actionType: ActionType, articleText: string): { 
           '- Подходящий для Telegram формат (короткие абзацы, можно использовать эмодзи)',
           '- Длина примерно 1500-2000 символов',
           '- Можно добавить релевантные хештеги в конце',
+          sourceInstruction,
           '- На русском языке',
           '',
           'Не добавляй пояснений перед постом, начинай сразу с заголовка.',
           '',
           baseText,
-        ].join('\n'),
+        ].filter(Boolean).join('\n'),
       };
     }
 
@@ -146,7 +150,7 @@ export async function POST(req: NextRequest) {
       .join('\n');
 
     // Шаг 2: Формируем промпт в зависимости от типа действия
-    const { system, user } = getPromptForActionType(actionType as ActionType, articleText);
+    const { system, user } = getPromptForActionType(actionType as ActionType, articleText, url);
 
     // Шаг 3: Вызываем OpenRouter API
     const response = await fetch(OPENROUTER_API_URL, {
@@ -156,7 +160,7 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'meta-llama/llama-3.2-3b-instruct:free',
+        model: 'deepseek/deepseek-r1-0528:free',
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: user },
