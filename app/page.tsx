@@ -47,7 +47,13 @@ export default function Home() {
   // Автоматическая прокрутка к результатам после успешной генерации
   useEffect(() => {
     if (result && !isLoading && resultRef.current) {
-      resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      // Небольшая задержка для гарантии обновления DOM
+      const timer = setTimeout(() => {
+        if (resultRef.current) {
+          resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 100)
+      return () => clearTimeout(timer)
     }
   }, [result, isLoading])
 
