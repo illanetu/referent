@@ -200,16 +200,16 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
             Референт
           </h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-base sm:text-lg text-gray-600 px-2">
             Анализ англоязычных статей с помощью AI
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-xl p-6 sm:p-8 mb-6">
+        <div className="bg-white rounded-lg shadow-xl p-4 sm:p-6 lg:p-8 mb-6">
           <div className="mb-6">
             <label
               htmlFor="article-url"
@@ -223,7 +223,7 @@ export default function Home() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="Введите URL статьи, например: https://example.com/article"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+              className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
             />
             <p className="mt-2 text-xs text-gray-500">
               Укажите ссылку на англоязычную статью
@@ -240,12 +240,12 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
             <button
               onClick={() => handleSubmit('summary')}
               disabled={isLoading}
               title="Получить краткое резюме статьи на русском языке"
-              className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
+              className="px-4 sm:px-6 py-2.5 sm:py-3 bg-indigo-600 text-white rounded-lg text-sm sm:text-base font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
             >
               О чем статья?
             </button>
@@ -253,7 +253,7 @@ export default function Home() {
               onClick={() => handleSubmit('theses')}
               disabled={isLoading}
               title="Получить основные тезисы статьи в виде списка"
-              className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
+              className="px-4 sm:px-6 py-2.5 sm:py-3 bg-indigo-600 text-white rounded-lg text-sm sm:text-base font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
             >
               Тезисы
             </button>
@@ -261,7 +261,7 @@ export default function Home() {
               onClick={() => handleSubmit('telegram')}
               disabled={isLoading}
               title="Создать пост для Telegram на основе статьи"
-              className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
+              className="px-4 sm:px-6 py-2.5 sm:py-3 bg-indigo-600 text-white rounded-lg text-sm sm:text-base font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
             >
               Пост для Telegram
             </button>
@@ -316,7 +316,7 @@ export default function Home() {
               }}
               disabled={isLoading}
               title="Извлечь текст и метаданные из статьи"
-              className="px-6 py-3 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
+              className="px-4 sm:px-6 py-2.5 sm:py-3 bg-orange-500 text-white rounded-lg text-sm sm:text-base font-medium hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
             >
               Парсить статью
             </button>
@@ -398,7 +398,7 @@ export default function Home() {
               }}
               disabled={isLoading}
               title="Перевести статью на русский язык с помощью AI"
-              className="px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
+              className="px-4 sm:px-6 py-2.5 sm:py-3 bg-green-600 text-white rounded-lg text-sm sm:text-base font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
             >
               Перевести статью
             </button>
@@ -406,7 +406,7 @@ export default function Home() {
         </div>
 
         {statusMessage && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg shadow-md p-4 mb-6">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg shadow-md p-3 sm:p-4 mb-4 sm:mb-6">
             <div className="flex items-center">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
               <p className="text-sm text-blue-800">{statusMessage}</p>
@@ -415,24 +415,38 @@ export default function Home() {
         )}
 
         {error && (
-          <Alert variant="destructive" className="mb-6">
+          <Alert variant="destructive" className="mb-4 sm:mb-6">
             <AlertTitle>Ошибка</AlertTitle>
             <AlertDescription>{error.message}</AlertDescription>
           </Alert>
         )}
 
         {(result || isLoading) && (
-          <div ref={resultRef} className="bg-white rounded-lg shadow-xl p-6 sm:p-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-semibold text-gray-900">
+          <div ref={resultRef} className="bg-white rounded-lg shadow-xl p-4 sm:p-6 lg:p-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4">
+              <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">
                 {isLoading ? 'Генерация...' : getActionName(actionType, operationName)}
               </h2>
               {!isLoading && result && (
                 <button
                   onClick={handleCopy}
-                  className="px-4 py-2 text-sm text-indigo-600 bg-indigo-50 rounded-lg font-medium hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all"
+                  className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-indigo-600 bg-indigo-50 rounded-lg font-medium hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all flex items-center justify-center gap-2 self-start sm:self-auto"
                 >
-                  {copySuccess ? 'Скопировано!' : 'Копировать'}
+                  {copySuccess ? (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>Скопировано!</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      <span>Копировать</span>
+                    </>
+                  )}
                 </button>
               )}
             </div>
@@ -442,8 +456,8 @@ export default function Home() {
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
                 </div>
               ) : (
-                <div className="prose max-w-none">
-                  <pre className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                <div className="prose max-w-none overflow-x-auto">
+                  <pre className="text-gray-700 whitespace-pre-wrap leading-relaxed text-sm sm:text-base break-words">
                     {result}
                   </pre>
                 </div>
