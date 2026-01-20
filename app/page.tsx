@@ -1,8 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import { Alert, AlertDescription, AlertTitle } from './components/ui/alert'
 
 type ActionType = 'summary' | 'theses' | 'telegram' | null
+
+type ErrorInfo = {
+  message: string
+  type: 'article-load' | 'api-error' | 'translation-error' | 'processing-error' | 'unknown'
+}
 
 export default function Home() {
   const [url, setUrl] = useState('')
@@ -11,6 +17,84 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false)
   const [operationName, setOperationName] = useState<string>('')
   const [statusMessage, setStatusMessage] = useState<string>('')
+  const [error, setError] = useState<ErrorInfo | null>(null)
+
+  const getFriendlyErrorMessage = (error: any, response?: Response): ErrorInfo => {
+    // Ошибки загрузки статьи (404, 500, таймаут и т.п.)
+    if (response && (response.status === 404 || response.status === 500 || response.status >= 500)) {
+      return {
+        message: 'Не удалось загрузить статью по этой ссылке.',
+        type: 'article-load',
+      }
+    }
+
+    // Ошибки таймаута
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      return {
+        message: 'Не удалось загрузить статью по этой ссылке.',
+        type: 'article-load',
+      }
+    }
+
+    // Ошибки от API
+    if (error?.message) {
+      const errorMsg = error.message.toLowerCase()
+
+      // Ошибки парсинга статьи
+      if (errorMsg.includes('не удалось загрузить страницу') || errorMsg.includes('парсинг')) {
+        return {
+          message: 'Не удалось загрузить статью по этой ссылке.',
+          type: 'article-load',
+        }
+      }
+
+      // Ошибки OpenRouter (региональные ограничения)
+      if (errorMsg.includes('region') || errorMsg.includes('недоступен в вашем регионе')) {
+        return {
+          message: 'Сервис AI недоступен в вашем регионе. Попробуйте использовать VPN.',
+          type: 'api-error',
+        }
+      }
+
+      // Ошибки API ключа
+      if (errorMsg.includes('api-ключ') || errorMsg.includes('api key')) {
+        return {
+          message: 'Ошибка конфигурации сервера. Обратитесь к администратору.',
+          type: 'api-error',
+        }
+      }
+
+      // Ошибки модели
+      if (errorMsg.includes('endpoint') || errorMsg.includes('model')) {
+        return {
+          message: 'Ошибка подключения к AI-сервису. Попробуйте позже.',
+          type: 'api-error',
+        }
+      }
+
+      // Ошибки перевода
+      if (errorMsg.includes('перевод') || errorMsg.includes('translation')) {
+        return {
+          message: 'Не удалось перевести статью. Попробуйте позже.',
+          type: 'translation-error',
+        }
+      }
+
+      // Ошибки обработки
+      if (errorMsg.includes('обработк') || errorMsg.includes('processing')) {
+        return {
+          message: 'Ошибка при обработке статьи. Попробуйте позже.',
+          type: 'processing-error',
+        }
+      }
+    }
+
+    // Неизвестная ошибка
+    return {
+      message: 'Произошла ошибка. Попробуйте позже.',
+      type: 'unknown',
+    }
+  }
 
   const handleSubmit = async (type: ActionType) => {
     if (!url.trim()) {
@@ -26,6 +110,7 @@ export default function Home() {
     setOperationName('')
     setIsLoading(true)
     setResult('')
+    setError(null)
     setStatusMessage('Загружаю статью...')
 
     try {
@@ -37,8 +122,13 @@ export default function Home() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Ошибка обработки статьи')
+        let errorData
+        try {
+          errorData = await response.json()
+        } catch {
+          errorData = { error: 'Ошибка обработки статьи' }
+        }
+        throw { message: errorData.error || 'Ошибка обработки статьи', response }
       }
 
       const data = await response.json()
@@ -46,18 +136,15 @@ export default function Home() {
       setStatusMessage('')
 
       if (data.error) {
-        setResult(`Ошибка: ${data.error}`)
+        setError(getFriendlyErrorMessage({ message: data.error }))
       } else {
         setResult(data.result || 'Результат не получен')
       }
-    } catch (error) {
+    } catch (error: any) {
       setIsLoading(false)
       setStatusMessage('')
-      if (error instanceof Error) {
-        setResult(`Ошибка: ${error.message}`)
-      } else {
-        setResult('Ошибка получения данных')
-      }
+      setError(getFriendlyErrorMessage(error, error?.response))
+      setResult('')
     }
   }
 
@@ -82,7 +169,7 @@ export default function Home() {
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Referent
+            Референт
           </h1>
           <p className="text-lg text-gray-600">
             Анализ англоязычных статей с помощью AI
@@ -145,6 +232,7 @@ export default function Home() {
                 setOperationName('Распарсенная статья');
                 setIsLoading(true);
                 setResult('');
+                setError(null);
                 setStatusMessage('Загружаю статью...');
                 try {
                   const response = await fetch('/api/parse-article', {
@@ -152,6 +240,17 @@ export default function Home() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url }),
                   });
+                  
+                  if (!response.ok) {
+                    let errorData
+                    try {
+                      errorData = await response.json();
+                    } catch {
+                      errorData = { error: 'Ошибка парсинга статьи' };
+                    }
+                    throw { message: errorData.error || 'Ошибка парсинга статьи', response };
+                  }
+
                   const data = await response.json();
                   setIsLoading(false);
                   setStatusMessage('');
@@ -160,10 +259,11 @@ export default function Home() {
                       ? (data as any).content || ''
                       : JSON.stringify(data, null, 2)
                   );
-                } catch {
+                } catch (error: any) {
                   setIsLoading(false);
                   setStatusMessage('');
-                  setResult('Ошибка получения данных');
+                  setError(getFriendlyErrorMessage(error, error?.response));
+                  setResult('');
                 }
               }}
               disabled={isLoading}
@@ -182,6 +282,7 @@ export default function Home() {
                 setOperationName('Переведенная статья');
                 setIsLoading(true);
                 setResult('');
+                setError(null);
                 setStatusMessage('Загружаю статью...');
                 try {
                   // Шаг 1. Получаем распаршенную статью
@@ -191,6 +292,17 @@ export default function Home() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url }),
                   });
+                  
+                  if (!resParse.ok) {
+                    let errorData
+                    try {
+                      errorData = await resParse.json();
+                    } catch {
+                      errorData = { error: 'Ошибка парсинга статьи' };
+                    }
+                    throw { message: errorData.error || 'Ошибка парсинга статьи', response: resParse };
+                  }
+
                   const parsed = await resParse.json();
                   const text =
                     (parsed.title ? `# ${parsed.title}\n` : '') +
@@ -204,18 +316,35 @@ export default function Home() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ text }),
                   });
+                  
+                  if (!resTrans.ok) {
+                    let errorData
+                    try {
+                      errorData = await resTrans.json();
+                    } catch {
+                      errorData = { error: 'Ошибка перевода' };
+                    }
+                    throw { message: errorData.error || 'Ошибка перевода', response: resTrans };
+                  }
+
                   const translated = await resTrans.json();
                   setIsLoading(false);
                   setStatusMessage('');
-                  setResult(
-                    typeof translated === 'object' && translated !== null && 'result' in translated
-                      ? (translated as any).result || ''
-                      : JSON.stringify(translated, null, 2)
-                  );
-                } catch (e) {
+                  
+                  if (translated.error) {
+                    setError(getFriendlyErrorMessage({ message: translated.error }));
+                  } else {
+                    setResult(
+                      typeof translated === 'object' && translated !== null && 'result' in translated
+                        ? (translated as any).result || ''
+                        : JSON.stringify(translated, null, 2)
+                    );
+                  }
+                } catch (e: any) {
                   setIsLoading(false);
                   setStatusMessage('');
-                  setResult('Ошибка при переводе');
+                  setError(getFriendlyErrorMessage(e, e?.response));
+                  setResult('');
                 }
               }}
               disabled={isLoading}
@@ -234,6 +363,13 @@ export default function Home() {
               <p className="text-sm text-blue-800">{statusMessage}</p>
             </div>
           </div>
+        )}
+
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertTitle>Ошибка</AlertTitle>
+            <AlertDescription>{error.message}</AlertDescription>
+          </Alert>
         )}
 
         {(result || isLoading) && (
