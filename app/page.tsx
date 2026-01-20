@@ -10,6 +10,7 @@ export default function Home() {
   const [result, setResult] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [operationName, setOperationName] = useState<string>('')
+  const [statusMessage, setStatusMessage] = useState<string>('')
 
   const handleSubmit = async (type: ActionType) => {
     if (!url.trim()) {
@@ -25,8 +26,10 @@ export default function Home() {
     setOperationName('')
     setIsLoading(true)
     setResult('')
+    setStatusMessage('Загружаю статью...')
 
     try {
+      setStatusMessage('Обрабатываю статью...')
       const response = await fetch('/api/process-article', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -40,6 +43,7 @@ export default function Home() {
 
       const data = await response.json()
       setIsLoading(false)
+      setStatusMessage('')
 
       if (data.error) {
         setResult(`Ошибка: ${data.error}`)
@@ -48,6 +52,7 @@ export default function Home() {
       }
     } catch (error) {
       setIsLoading(false)
+      setStatusMessage('')
       if (error instanceof Error) {
         setResult(`Ошибка: ${error.message}`)
       } else {
@@ -97,15 +102,19 @@ export default function Home() {
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com/article"
+              placeholder="Введите URL статьи, например: https://example.com/article"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
             />
+            <p className="mt-2 text-xs text-gray-500">
+              Укажите ссылку на англоязычную статью
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
             <button
               onClick={() => handleSubmit('summary')}
               disabled={isLoading}
+              title="Получить краткое резюме статьи на русском языке"
               className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
             >
               О чем статья?
@@ -113,6 +122,7 @@ export default function Home() {
             <button
               onClick={() => handleSubmit('theses')}
               disabled={isLoading}
+              title="Получить основные тезисы статьи в виде списка"
               className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
             >
               Тезисы
@@ -120,6 +130,7 @@ export default function Home() {
             <button
               onClick={() => handleSubmit('telegram')}
               disabled={isLoading}
+              title="Создать пост для Telegram на основе статьи"
               className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
             >
               Пост для Telegram
@@ -134,6 +145,7 @@ export default function Home() {
                 setOperationName('Распарсенная статья');
                 setIsLoading(true);
                 setResult('');
+                setStatusMessage('Загружаю статью...');
                 try {
                   const response = await fetch('/api/parse-article', {
                     method: 'POST',
@@ -142,6 +154,7 @@ export default function Home() {
                   });
                   const data = await response.json();
                   setIsLoading(false);
+                  setStatusMessage('');
                   setResult(
                     typeof data === 'object' && data !== null && 'content' in data
                       ? (data as any).content || ''
@@ -149,10 +162,12 @@ export default function Home() {
                   );
                 } catch {
                   setIsLoading(false);
+                  setStatusMessage('');
                   setResult('Ошибка получения данных');
                 }
               }}
               disabled={isLoading}
+              title="Извлечь текст и метаданные из статьи"
               className="px-6 py-3 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
             >
               Парсить статью
@@ -167,8 +182,10 @@ export default function Home() {
                 setOperationName('Переведенная статья');
                 setIsLoading(true);
                 setResult('');
+                setStatusMessage('Загружаю статью...');
                 try {
                   // Шаг 1. Получаем распаршенную статью
+                  setStatusMessage('Парсю статью...');
                   const resParse = await fetch('/api/parse-article', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -181,6 +198,7 @@ export default function Home() {
                     (parsed.content || '');
 
                   // Шаг 2. Переводим через OpenRouter AI
+                  setStatusMessage('Перевожу статью...');
                   const resTrans = await fetch('/api/translate-article', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -188,6 +206,7 @@ export default function Home() {
                   });
                   const translated = await resTrans.json();
                   setIsLoading(false);
+                  setStatusMessage('');
                   setResult(
                     typeof translated === 'object' && translated !== null && 'result' in translated
                       ? (translated as any).result || ''
@@ -195,16 +214,27 @@ export default function Home() {
                   );
                 } catch (e) {
                   setIsLoading(false);
+                  setStatusMessage('');
                   setResult('Ошибка при переводе');
                 }
               }}
               disabled={isLoading}
+              title="Перевести статью на русский язык с помощью AI"
               className="px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
             >
               Перевести статью
             </button>
           </div>
         </div>
+
+        {statusMessage && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg shadow-md p-4 mb-6">
+            <div className="flex items-center">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
+              <p className="text-sm text-blue-800">{statusMessage}</p>
+            </div>
+          </div>
+        )}
 
         {(result || isLoading) && (
           <div className="bg-white rounded-lg shadow-xl p-6 sm:p-8">
