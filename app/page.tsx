@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Alert, AlertDescription, AlertTitle } from './components/ui/alert'
 
 type ActionType = 'summary' | 'theses' | 'telegram' | null
@@ -18,6 +18,38 @@ export default function Home() {
   const [operationName, setOperationName] = useState<string>('')
   const [statusMessage, setStatusMessage] = useState<string>('')
   const [error, setError] = useState<ErrorInfo | null>(null)
+  const [copySuccess, setCopySuccess] = useState(false)
+  const resultRef = useRef<HTMLDivElement>(null)
+
+  const handleClear = () => {
+    setUrl('')
+    setActionType(null)
+    setResult('')
+    setIsLoading(false)
+    setOperationName('')
+    setStatusMessage('')
+    setError(null)
+    setCopySuccess(false)
+  }
+
+  const handleCopy = async () => {
+    if (result) {
+      try {
+        await navigator.clipboard.writeText(result)
+        setCopySuccess(true)
+        setTimeout(() => setCopySuccess(false), 2000)
+      } catch (err) {
+        console.error('Ошибка копирования:', err)
+      }
+    }
+  }
+
+  // Автоматическая прокрутка к результатам после успешной генерации
+  useEffect(() => {
+    if (result && !isLoading && resultRef.current) {
+      resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [result, isLoading])
 
   const getFriendlyErrorMessage = (error: any, response?: Response): ErrorInfo => {
     // Ошибки загрузки статьи (404, 500, таймаут и т.п.)
@@ -137,6 +169,7 @@ export default function Home() {
 
       if (data.error) {
         setError(getFriendlyErrorMessage({ message: data.error }))
+        setResult('')
       } else {
         setResult(data.result || 'Результат не получен')
       }
@@ -197,6 +230,16 @@ export default function Home() {
             </p>
           </div>
 
+          <div className="mb-4">
+            <button
+              onClick={handleClear}
+              disabled={isLoading}
+              className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              Очистить
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
             <button
               onClick={() => handleSubmit('summary')}
@@ -254,11 +297,16 @@ export default function Home() {
                   const data = await response.json();
                   setIsLoading(false);
                   setStatusMessage('');
-                  setResult(
-                    typeof data === 'object' && data !== null && 'content' in data
-                      ? (data as any).content || ''
-                      : JSON.stringify(data, null, 2)
-                  );
+                  if (data.error) {
+                    setError(getFriendlyErrorMessage({ message: data.error }));
+                    setResult('');
+                  } else {
+                    setResult(
+                      typeof data === 'object' && data !== null && 'content' in data
+                        ? (data as any).content || ''
+                        : JSON.stringify(data, null, 2)
+                    );
+                  }
                 } catch (error: any) {
                   setIsLoading(false);
                   setStatusMessage('');
@@ -333,6 +381,7 @@ export default function Home() {
                   
                   if (translated.error) {
                     setError(getFriendlyErrorMessage({ message: translated.error }));
+                    setResult('');
                   } else {
                     setResult(
                       typeof translated === 'object' && translated !== null && 'result' in translated
@@ -373,10 +422,20 @@ export default function Home() {
         )}
 
         {(result || isLoading) && (
-          <div className="bg-white rounded-lg shadow-xl p-6 sm:p-8">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-              {isLoading ? 'Генерация...' : getActionName(actionType, operationName)}
-            </h2>
+          <div ref={resultRef} className="bg-white rounded-lg shadow-xl p-6 sm:p-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-semibold text-gray-900">
+                {isLoading ? 'Генерация...' : getActionName(actionType, operationName)}
+              </h2>
+              {!isLoading && result && (
+                <button
+                  onClick={handleCopy}
+                  className="px-4 py-2 text-sm text-indigo-600 bg-indigo-50 rounded-lg font-medium hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all"
+                >
+                  {copySuccess ? 'Скопировано!' : 'Копировать'}
+                </button>
+              )}
+            </div>
             <div className="min-h-[200px]">
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
