@@ -3,13 +3,8 @@ import * as cheerio from 'cheerio';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-// Список моделей для генерации изображений (в порядке приоритета)
-const IMAGE_MODELS = [
-  'stabilityai/stable-diffusion-2-1',
-  'runwayml/stable-diffusion-v1-5',
-  'prompthero/openjourney-v4',
-  'CompVis/stable-diffusion-v1-4',
-];
+// Модель для генерации изображений
+const IMAGE_MODEL = 'stabilityai/stable-diffusion-xl-base-1.0';
 
 async function parseArticle(url: string) {
   try {
@@ -198,134 +193,101 @@ export async function POST(req: NextRequest) {
     // Шаг 3: Генерируем изображение через Hugging Face Inference API
     console.log('Начинаю генерацию изображения с промптом:', imagePrompt.substring(0, 100));
     
-    let lastError: any = null;
-    
-    // Пробуем каждую модель по очереди
-    for (const model of IMAGE_MODELS) {
-      try {
-        // Пробуем сначала старый endpoint
-        let hfApiUrl = `https://api-inference.huggingface.co/models/${model}`;
-        console.log(`Пробую модель: ${model} через api-inference`);
-        
-        let hfResponse = await fetch(hfApiUrl, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${huggingFaceApiKey}`,
-            'Content-Type': 'application/json',
+    try {
+      // Используем Stable Diffusion XL через router.huggingface.co
+      const hfApiUrl = `https://router.huggingface.co/hf-inference/models/${IMAGE_MODEL}`;
+      console.log(`Использую модель: ${IMAGE_MODEL}`);
+      
+      const hfResponse = await fetch(hfApiUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${huggingFaceApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inputs: imagePrompt,
+          parameters: {
+            guidance_scale: 7.5,
+            num_inference_steps: 30,
           },
-          body: JSON.stringify({
-            inputs: imagePrompt,
-            parameters: {
-              guidance_scale: 7.5,
-              num_inference_steps: 30,
-            },
-          }),
-        });
+        }),
+      });
 
-        // Если старый endpoint вернул 410, пробуем router API
-        if (hfResponse.status === 410) {
-          console.log(`Старый endpoint недоступен, пробую router API для ${model}`);
-          hfApiUrl = `https://router.huggingface.co/v1/models/${model}`;
-          
-          hfResponse = await fetch(hfApiUrl, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${huggingFaceApiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              inputs: imagePrompt,
-              parameters: {
-                guidance_scale: 7.5,
-                num_inference_steps: 30,
-              },
-            }),
-          });
+      if (!hfResponse.ok) {
+        const errorText = await hfResponse.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText };
         }
-
-        if (!hfResponse.ok) {
-          const errorText = await hfResponse.text();
-          let errorData;
-          try {
-            errorData = JSON.parse(errorText);
-          } catch {
-            errorData = { error: errorText };
-          }
-          
-          console.warn(`Модель ${model} недоступна:`, {
-            status: hfResponse.status,
-            error: errorData,
-          });
-          
-          // Если модель загружается, ждем и пробуем снова
-          if (hfResponse.status === 503) {
-            console.log(`Модель ${model} загружается, пробую следующую...`);
-            lastError = { status: 503, model, message: 'Модель загружается' };
-            continue; // Пробуем следующую модель
-          }
-          
-          // Если модель не найдена или удалена, пробуем следующую
-          if (hfResponse.status === 404 || hfResponse.status === 410) {
-            console.log(`Модель ${model} недоступна (${hfResponse.status}), пробую следующую...`);
-            lastError = { status: hfResponse.status, model, message: 'Модель недоступна' };
-            continue; // Пробуем следующую модель
-          }
-          
-          // Для ошибок авторизации и прав доступа останавливаемся
-          if (hfResponse.status === 401) {
-            return NextResponse.json(
-              { error: 'Ошибка авторизации Hugging Face. Проверьте API-ключ.' },
-              { status: 401 }
-            );
-          }
-          
-          if (hfResponse.status === 403) {
-            return NextResponse.json(
-              { 
-                error: 'API-ключ Hugging Face не имеет достаточных прав для использования Inference Providers API. Создайте новый токен с правами "Inference Providers" на https://huggingface.co/settings/tokens' 
-              },
-              { status: 403 }
-            );
-          }
-          
-          lastError = { status: hfResponse.status, model, message: errorData.error || errorText };
-          continue; // Пробуем следующую модель
-        }
-
-        // Успешно получили изображение
-        const imageBlob = await hfResponse.blob();
-        console.log(`Изображение успешно сгенерировано моделью ${model}, размер:`, imageBlob.size);
         
-        const arrayBuffer = await imageBlob.arrayBuffer();
-        const base64 = Buffer.from(arrayBuffer).toString('base64');
-        const mimeType = imageBlob.type || 'image/png';
-
-        return NextResponse.json({
-          image: `data:${mimeType};base64,${base64}`,
-          prompt: imagePrompt,
-          model: model, // Возвращаем информацию о модели
+        console.error(`Ошибка Hugging Face API:`, {
+          status: hfResponse.status,
+          error: errorData,
         });
-      } catch (modelError: any) {
-        console.warn(`Ошибка при использовании модели ${model}:`, modelError?.message);
-        lastError = { model, message: modelError?.message };
-        continue; // Пробуем следующую модель
+        
+        if (hfResponse.status === 503) {
+          return NextResponse.json(
+            { error: 'Модель загружается, попробуйте через несколько секунд' },
+            { status: 503 }
+          );
+        }
+        
+        if (hfResponse.status === 401) {
+          return NextResponse.json(
+            { error: 'Ошибка авторизации Hugging Face. Проверьте API-ключ.' },
+            { status: 401 }
+          );
+        }
+        
+        if (hfResponse.status === 403) {
+          return NextResponse.json(
+            { 
+              error: 'API-ключ Hugging Face не имеет достаточных прав для использования Inference Providers API. Создайте новый токен с правами "Inference Providers" на https://huggingface.co/settings/tokens' 
+            },
+            { status: 403 }
+          );
+        }
+        
+        if (hfResponse.status === 404) {
+          return NextResponse.json(
+            { error: 'Модель не найдена. Проверьте доступность модели.' },
+            { status: 404 }
+          );
+        }
+        
+        const errorMessage = errorData.error || errorData.message || `HTTP ${hfResponse.status}: ${errorText}`;
+        return NextResponse.json(
+          { error: `Ошибка генерации изображения: ${errorMessage}` },
+          { status: hfResponse.status }
+        );
       }
-    }
-    
-    // Если все модели не сработали
-    console.error('Все модели не сработали. Последняя ошибка:', lastError);
-    
-    if (lastError?.status === 503) {
+
+      // Успешно получили изображение
+      const imageBlob = await hfResponse.blob();
+      console.log(`Изображение успешно сгенерировано моделью ${IMAGE_MODEL}, размер:`, imageBlob.size);
+      
+      const arrayBuffer = await imageBlob.arrayBuffer();
+      const base64 = Buffer.from(arrayBuffer).toString('base64');
+      const mimeType = imageBlob.type || 'image/png';
+
+      return NextResponse.json({
+        image: `data:${mimeType};base64,${base64}`,
+        prompt: imagePrompt,
+        model: IMAGE_MODEL,
+      });
+    } catch (hfError: any) {
+      console.error('Ошибка при вызове Hugging Face API:', {
+        message: hfError?.message,
+        stack: hfError?.stack,
+      });
+      
       return NextResponse.json(
-        { error: 'Все модели загружаются, попробуйте через несколько секунд' },
-        { status: 503 }
+        { error: `Ошибка генерации изображения: ${hfError?.message || 'Неизвестная ошибка'}` },
+        { status: 500 }
       );
     }
-    
-    return NextResponse.json(
-      { error: 'Не удалось сгенерировать изображение. Все доступные модели недоступны. Попробуйте позже.' },
-      { status: 500 }
-    );
   } catch (error) {
     console.error('Общая ошибка генерации иллюстрации:', error);
     console.error('Тип ошибки:', error instanceof Error ? error.constructor.name : typeof error);
