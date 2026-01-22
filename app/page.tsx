@@ -227,6 +227,7 @@ export default function Home() {
     setOperationName('')
     setIsLoading(true)
     setResult('')
+    setImageResult(null)
     setError(null)
     setStatusMessage('Загружаю статью...')
 
@@ -255,14 +256,17 @@ export default function Home() {
       if (data.error) {
         setError(getFriendlyErrorMessage({ message: data.error }))
         setResult('')
+        setImageResult(null)
       } else {
         setResult(data.result || 'Результат не получен')
+        setImageResult(null)
       }
     } catch (error: any) {
       setIsLoading(false)
       setStatusMessage('')
       setError(getFriendlyErrorMessage(error, error?.response))
       setResult('')
+      setImageResult(null)
     }
   }
 
