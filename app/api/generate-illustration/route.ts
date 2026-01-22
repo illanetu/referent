@@ -203,10 +203,11 @@ export async function POST(req: NextRequest) {
     // Пробуем каждую модель по очереди
     for (const model of IMAGE_MODELS) {
       try {
-        const hfApiUrl = `https://api-inference.huggingface.co/models/${model}`;
-        console.log(`Пробую модель: ${model}`);
+        // Пробуем сначала старый endpoint
+        let hfApiUrl = `https://api-inference.huggingface.co/models/${model}`;
+        console.log(`Пробую модель: ${model} через api-inference`);
         
-        const hfResponse = await fetch(hfApiUrl, {
+        let hfResponse = await fetch(hfApiUrl, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${huggingFaceApiKey}`,
@@ -220,6 +221,27 @@ export async function POST(req: NextRequest) {
             },
           }),
         });
+
+        // Если старый endpoint вернул 410, пробуем router API
+        if (hfResponse.status === 410) {
+          console.log(`Старый endpoint недоступен, пробую router API для ${model}`);
+          hfApiUrl = `https://router.huggingface.co/v1/models/${model}`;
+          
+          hfResponse = await fetch(hfApiUrl, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${huggingFaceApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              inputs: imagePrompt,
+              parameters: {
+                guidance_scale: 7.5,
+                num_inference_steps: 30,
+              },
+            }),
+          });
+        }
 
         if (!hfResponse.ok) {
           const errorText = await hfResponse.text();
@@ -249,11 +271,20 @@ export async function POST(req: NextRequest) {
             continue; // Пробуем следующую модель
           }
           
-          // Для других ошибок (401 и т.д.) останавливаемся
+          // Для ошибок авторизации и прав доступа останавливаемся
           if (hfResponse.status === 401) {
             return NextResponse.json(
               { error: 'Ошибка авторизации Hugging Face. Проверьте API-ключ.' },
               { status: 401 }
+            );
+          }
+          
+          if (hfResponse.status === 403) {
+            return NextResponse.json(
+              { 
+                error: 'API-ключ Hugging Face не имеет достаточных прав для использования Inference Providers API. Создайте новый токен с правами "Inference Providers" на https://huggingface.co/settings/tokens' 
+              },
+              { status: 403 }
             );
           }
           
