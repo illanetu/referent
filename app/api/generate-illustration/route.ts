@@ -64,7 +64,10 @@ export async function POST(req: NextRequest) {
 
   const huggingFaceApiKey = process.env.HUGGINGFACE_API_KEY;
   if (!huggingFaceApiKey) {
-    return NextResponse.json({ error: 'Нет API-ключа Hugging Face' }, { status: 500 });
+    console.error('HUGGINGFACE_API_KEY не найден в переменных окружения');
+    return NextResponse.json({ 
+      error: 'Нет API-ключа Hugging Face. Проверьте настройки переменных окружения на Vercel.' 
+    }, { status: 500 });
   }
 
   try {
@@ -97,6 +100,7 @@ export async function POST(req: NextRequest) {
       .join('\n');
 
     // Шаг 2: Создаем промпт для изображения через OpenRouter
+    console.log('Отправляю запрос к OpenRouter для создания промпта...');
     const promptResponse = await fetch(OPENROUTER_API_URL, {
       method: 'POST',
       headers: {
@@ -126,6 +130,8 @@ export async function POST(req: NextRequest) {
           },
         ],
       }),
+      // Таймаут для Vercel (максимум 10 секунд для Hobby плана)
+      signal: AbortSignal.timeout(8000),
     });
 
     if (!promptResponse.ok) {
@@ -197,6 +203,7 @@ export async function POST(req: NextRequest) {
       // Используем Stable Diffusion XL через router.huggingface.co
       const hfApiUrl = `https://router.huggingface.co/hf-inference/models/${IMAGE_MODEL}`;
       console.log(`Использую модель: ${IMAGE_MODEL}`);
+      console.log(`API ключ Hugging Face присутствует: ${huggingFaceApiKey ? 'Да' : 'Нет'}`);
       
       const hfResponse = await fetch(hfApiUrl, {
         method: 'POST',
@@ -211,6 +218,8 @@ export async function POST(req: NextRequest) {
             num_inference_steps: 30,
           },
         }),
+        // Таймаут для генерации изображения (может занять время)
+        signal: AbortSignal.timeout(25000),
       });
 
       if (!hfResponse.ok) {
@@ -280,8 +289,17 @@ export async function POST(req: NextRequest) {
     } catch (hfError: any) {
       console.error('Ошибка при вызове Hugging Face API:', {
         message: hfError?.message,
+        name: hfError?.name,
         stack: hfError?.stack,
       });
+      
+      // Проверяем, не таймаут ли это
+      if (hfError?.name === 'AbortError' || hfError?.message?.includes('timeout')) {
+        return NextResponse.json(
+          { error: 'Превышено время ожидания генерации изображения. Генерация изображений может занимать много времени. Попробуйте позже.' },
+          { status: 504 }
+        );
+      }
       
       return NextResponse.json(
         { error: `Ошибка генерации изображения: ${hfError?.message || 'Неизвестная ошибка'}` },
@@ -293,16 +311,29 @@ export async function POST(req: NextRequest) {
     console.error('Тип ошибки:', error instanceof Error ? error.constructor.name : typeof error);
     console.error('Стек ошибки:', error instanceof Error ? error.stack : 'Нет стека');
     
+    // Проверяем, не таймаут ли это
+    if (error instanceof Error && (error.message.includes('timeout') || error.message.includes('TIMEOUT'))) {
+      return NextResponse.json(
+        { error: 'Превышено время ожидания генерации изображения. Попробуйте позже или используйте более короткий промпт.' },
+        { status: 504 }
+      );
+    }
+    
     if (error instanceof Error) {
       // Возвращаем понятное сообщение об ошибке
       const errorMessage = error.message || 'Неожиданная ошибка генерации иллюстрации';
+      console.error('Детали ошибки для отладки:', {
+        message: errorMessage,
+        name: error.name,
+        cause: (error as any).cause,
+      });
       return NextResponse.json(
-        { error: errorMessage },
+        { error: `Ошибка генерации иллюстрации: ${errorMessage}` },
         { status: 500 }
       );
     }
     return NextResponse.json(
-      { error: 'Неожиданная ошибка генерации иллюстрации' },
+      { error: 'Неожиданная ошибка генерации иллюстрации. Проверьте логи на Vercel для деталей.' },
       { status: 500 }
     );
   }
