@@ -14,6 +14,7 @@ export default function Home() {
   const [url, setUrl] = useState('')
   const [actionType, setActionType] = useState<ActionType>(null)
   const [result, setResult] = useState('')
+  const [imageResult, setImageResult] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [operationName, setOperationName] = useState<string>('')
   const [statusMessage, setStatusMessage] = useState<string>('')
@@ -27,6 +28,7 @@ export default function Home() {
     setUrl('')
     setActionType(null)
     setResult('')
+    setImageResult(null)
     setIsLoading(false)
     setOperationName('')
     setStatusMessage('')
@@ -47,15 +49,28 @@ export default function Home() {
   }
 
   const handleShare = async () => {
-    if (!result) return
+    if (!result && !imageResult) return
 
     // Пробуем использовать Web Share API, если доступен
     if (navigator.share) {
       try {
-        await navigator.share({
+        const shareData: any = {
           title: getActionName(actionType, operationName),
-          text: result,
-        })
+        }
+        
+        if (result) {
+          shareData.text = result
+        }
+        
+        if (imageResult) {
+          // Конвертируем base64 в blob для sharing
+          const response = await fetch(imageResult)
+          const blob = await response.blob()
+          const file = new File([blob], 'illustration.png', { type: blob.type })
+          shareData.files = [file]
+        }
+        
+        await navigator.share(shareData)
         setShowShareMenu(false)
         return
       } catch (err) {
@@ -110,7 +125,7 @@ export default function Home() {
 
   // Автоматическая прокрутка к результатам после успешной генерации
   useEffect(() => {
-    if (result && !isLoading && resultRef.current) {
+    if ((result || imageResult) && !isLoading && resultRef.current) {
       // Небольшая задержка для гарантии обновления DOM
       const timer = setTimeout(() => {
         if (resultRef.current) {
@@ -119,7 +134,7 @@ export default function Home() {
       }, 100)
       return () => clearTimeout(timer)
     }
-  }, [result, isLoading])
+  }, [result, imageResult, isLoading])
 
   const getFriendlyErrorMessage = (error: any, response?: Response): ErrorInfo => {
     // Ошибки загрузки статьи (404, 500, таймаут и т.п.)
@@ -309,7 +324,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <button
               onClick={() => handleSubmit('summary')}
               disabled={isLoading}
@@ -341,13 +356,15 @@ export default function Home() {
                   return;
                 }
                 setActionType(null);
-                setOperationName('Распарсенная статья');
+                setOperationName('Иллюстрация');
                 setIsLoading(true);
                 setResult('');
+                setImageResult(null);
                 setError(null);
                 setStatusMessage('Загружаю статью...');
                 try {
-                  const response = await fetch('/api/parse-article', {
+                  setStatusMessage('Создаю промпт для изображения...');
+                  const response = await fetch('/api/generate-illustration', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url }),
@@ -358,118 +375,36 @@ export default function Home() {
                     try {
                       errorData = await response.json();
                     } catch {
-                      errorData = { error: 'Ошибка парсинга статьи' };
+                      errorData = { error: 'Ошибка генерации иллюстрации' };
                     }
-                    throw { message: errorData.error || 'Ошибка парсинга статьи', response };
+                    throw { message: errorData.error || 'Ошибка генерации иллюстрации', response };
                   }
 
                   const data = await response.json();
                   setIsLoading(false);
                   setStatusMessage('');
+                  
                   if (data.error) {
                     setError(getFriendlyErrorMessage({ message: data.error }));
-                    setResult('');
+                    setImageResult(null);
                   } else {
-                    setResult(
-                      typeof data === 'object' && data !== null && 'content' in data
-                        ? (data as any).content || ''
-                        : JSON.stringify(data, null, 2)
-                    );
+                    setImageResult(data.image || null);
+                    if (data.prompt) {
+                      setResult(`Промпт: ${data.prompt}`);
+                    }
                   }
                 } catch (error: any) {
                   setIsLoading(false);
                   setStatusMessage('');
                   setError(getFriendlyErrorMessage(error, error?.response));
-                  setResult('');
+                  setImageResult(null);
                 }
               }}
               disabled={isLoading}
-              title="Извлечь текст и метаданные из статьи"
-              className="px-4 sm:px-6 py-2.5 sm:py-3 bg-orange-500 text-white rounded-lg text-sm sm:text-base font-medium hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
+              title="Сгенерировать иллюстрацию на основе статьи"
+              className="px-4 sm:px-6 py-2.5 sm:py-3 bg-purple-600 text-white rounded-lg text-sm sm:text-base font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
             >
-              Парсить статью
-            </button>
-            <button
-              onClick={async () => {
-                if (!url.trim()) {
-                  alert('Пожалуйста, введите URL статьи');
-                  return;
-                }
-                setActionType(null);
-                setOperationName('Переведенная статья');
-                setIsLoading(true);
-                setResult('');
-                setError(null);
-                setStatusMessage('Загружаю статью...');
-                try {
-                  // Шаг 1. Получаем распаршенную статью
-                  setStatusMessage('Парсю статью...');
-                  const resParse = await fetch('/api/parse-article', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url }),
-                  });
-                  
-                  if (!resParse.ok) {
-                    let errorData
-                    try {
-                      errorData = await resParse.json();
-                    } catch {
-                      errorData = { error: 'Ошибка парсинга статьи' };
-                    }
-                    throw { message: errorData.error || 'Ошибка парсинга статьи', response: resParse };
-                  }
-
-                  const parsed = await resParse.json();
-                  const text =
-                    (parsed.title ? `# ${parsed.title}\n` : '') +
-                    (parsed.date ? `Дата: ${parsed.date}\n\n` : '') +
-                    (parsed.content || '');
-
-                  // Шаг 2. Переводим через OpenRouter AI
-                  setStatusMessage('Перевожу статью...');
-                  const resTrans = await fetch('/api/translate-article', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text }),
-                  });
-                  
-                  if (!resTrans.ok) {
-                    let errorData
-                    try {
-                      errorData = await resTrans.json();
-                    } catch {
-                      errorData = { error: 'Ошибка перевода' };
-                    }
-                    throw { message: errorData.error || 'Ошибка перевода', response: resTrans };
-                  }
-
-                  const translated = await resTrans.json();
-                  setIsLoading(false);
-                  setStatusMessage('');
-                  
-                  if (translated.error) {
-                    setError(getFriendlyErrorMessage({ message: translated.error }));
-                    setResult('');
-                  } else {
-                    setResult(
-                      typeof translated === 'object' && translated !== null && 'result' in translated
-                        ? (translated as any).result || ''
-                        : JSON.stringify(translated, null, 2)
-                    );
-                  }
-                } catch (e: any) {
-                  setIsLoading(false);
-                  setStatusMessage('');
-                  setError(getFriendlyErrorMessage(e, e?.response));
-                  setResult('');
-                }
-              }}
-              disabled={isLoading}
-              title="Перевести статью на русский язык с помощью AI"
-              className="px-4 sm:px-6 py-2.5 sm:py-3 bg-green-600 text-white rounded-lg text-sm sm:text-base font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
-            >
-              Перевести статью
+              Иллюстрация
             </button>
           </div>
         </div>
@@ -490,13 +425,13 @@ export default function Home() {
           </Alert>
         )}
 
-        {(result || isLoading) && (
+        {(result || imageResult || isLoading) && (
           <div ref={resultRef} className="bg-white rounded-lg shadow-xl p-4 sm:p-6 lg:p-8">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4">
               <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">
                 {isLoading ? 'Генерация...' : getActionName(actionType, operationName)}
               </h2>
-              {!isLoading && result && (
+              {!isLoading && (result || imageResult) && (
                 <div className="flex items-center gap-2 self-start sm:self-auto">
                   <div className="relative" ref={shareMenuRef}>
                     <button
@@ -540,26 +475,28 @@ export default function Home() {
                       </div>
                     )}
                   </div>
-                  <button
-                    onClick={handleCopy}
-                    className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-indigo-600 bg-indigo-50 rounded-lg font-medium hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all flex items-center justify-center gap-2"
-                  >
-                    {copySuccess ? (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span>Скопировано!</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        <span>Копировать</span>
-                      </>
-                    )}
-                  </button>
+                  {result && (
+                    <button
+                      onClick={handleCopy}
+                      className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-indigo-600 bg-indigo-50 rounded-lg font-medium hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all flex items-center justify-center gap-2"
+                    >
+                      {copySuccess ? (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span>Скопировано!</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                          <span>Копировать</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -567,6 +504,23 @@ export default function Home() {
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                </div>
+              ) : imageResult ? (
+                <div className="space-y-4">
+                  <div className="flex justify-center">
+                    <img
+                      src={imageResult}
+                      alt="Сгенерированная иллюстрация"
+                      className="max-w-full h-auto rounded-lg shadow-md"
+                    />
+                  </div>
+                  {result && (
+                    <div className="prose max-w-none overflow-x-auto">
+                      <pre className="text-gray-700 whitespace-pre-wrap leading-relaxed text-sm sm:text-base break-words">
+                        {result}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="prose max-w-none overflow-x-auto">
