@@ -393,9 +393,7 @@ export default function Home() {
                     setImageResult(null);
                   } else {
                     setImageResult(data.image || null);
-                    if (data.prompt) {
-                      setResult(`Промпт: ${data.prompt}`);
-                    }
+                    setResult(''); // Очищаем текстовый результат, показываем только изображение
                   }
                 } catch (error: any) {
                   setIsLoading(false);
