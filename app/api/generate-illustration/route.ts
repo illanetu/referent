@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 
+// Увеличиваем лимит времени выполнения для Vercel (максимум 60 секунд для Hobby плана)
+export const maxDuration = 60;
+
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 // Модель для генерации изображений
@@ -130,8 +133,8 @@ export async function POST(req: NextRequest) {
           },
         ],
       }),
-      // Таймаут для Vercel (максимум 10 секунд для Hobby плана)
-      signal: AbortSignal.timeout(8000),
+      // Таймаут для OpenRouter (увеличено до 20 секунд)
+      signal: AbortSignal.timeout(20000),
     });
 
     if (!promptResponse.ok) {
@@ -215,11 +218,11 @@ export async function POST(req: NextRequest) {
           inputs: imagePrompt,
           parameters: {
             guidance_scale: 7.5,
-            num_inference_steps: 30,
+            num_inference_steps: 20, // Уменьшено для ускорения генерации на Vercel
           },
         }),
-        // Таймаут для генерации изображения (может занять время)
-        signal: AbortSignal.timeout(25000),
+        // Таймаут для генерации изображения (оставляем запас для обработки)
+        signal: AbortSignal.timeout(35000),
       });
 
       if (!hfResponse.ok) {
